@@ -1,0 +1,182 @@
+local LOADING_TEXT = "Loading Script..."
+local MIN_SHOW_TIME = 20 -- minimum seconds of loading screen
+local ENABLE_PRELOAD = true -- set to false
+local BAR_CYCLE_TIME = 20 -- seconds per fill of progress bar animation
+--===============================--
+
+local Players = game:GetService("Players")
+local TweenService = game:GetService("TweenService")
+local ContentProvider= game:GetService("ContentProvider")
+
+local player = Players.LocalPlayer
+
+-- Root ScreenGui
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CenteredLoadingScreen"
+screenGui.ResetOnSpawn = false
+screenGui.IgnoreGuiInset = true
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+-- Fullscreen dim background
+local overlay = Instance.new("Frame")
+overlay.Size = UDim2.fromScale(1, 1)
+overlay.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+overlay.BackgroundTransparency = 0.35
+overlay.Parent = screenGui
+
+-- Center card
+local card = Instance.new("Frame")
+card.Name = "Card"
+card.AnchorPoint = Vector2.new(0.5, 0.5)
+card.Position = UDim2.fromScale(0.5, 0.5)
+card.Size = UDim2.fromOffset(420, 160)
+card.BackgroundColor3 = Color3.fromRGB(25, 25, 25)
+card.BackgroundTransparency = 0.1
+card.Parent = overlay
+
+local corner = Instance.new("UICorner", card)
+corner.CornerRadius = UDim.new(0, 16)
+
+local stroke = Instance.new("UIStroke", card)
+stroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+stroke.Thickness = 2
+stroke.Color = Color3.fromRGB(255, 255, 255)
+stroke.Transparency = 0.85
+
+local padding = Instance.new("UIPadding", card)
+padding.PaddingTop = UDim.new(0, 20)
+padding.PaddingBottom = UDim.new(0, 20)
+padding.PaddingLeft = UDim.new(0, 24)
+padding.PaddingRight = UDim.new(0, 24)
+
+local layout = Instance.new("UIListLayout", card)
+layout.FillDirection = Enum.FillDirection.Vertical
+layout.HorizontalAlignment = Enum.HorizontalAlignment.Center
+layout.VerticalAlignment = Enum.VerticalAlignment.Center
+layout.Padding = UDim.new(0, 14)
+
+-- Title / Loading text
+local label = Instance.new("TextLabel")
+label.Size = UDim2.new(1, 0, 0, 40)
+label.BackgroundTransparency = 1
+label.Text = LOADING_TEXT
+label.TextColor3 = Color3.fromRGB(240, 240, 240)
+label.Font = Enum.Font.GothamBold
+label.TextScaled = true
+label.Parent = card
+
+-- Progress bar container
+local barContainer = Instance.new("Frame")
+barContainer.Size = UDim2.new(1, 0, 0, 12)
+barContainer.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+barContainer.BackgroundTransparency = 0.15
+barContainer.Parent = card
+local barCorner = Instance.new("UICorner", barContainer)
+barCorner.CornerRadius = UDim.new(0, 8)
+
+-- Actual bar (animated)
+local bar = Instance.new("Frame")
+bar.AnchorPoint = Vector2.new(0, 0.5)
+bar.Position = UDim2.fromScale(0, 0.5)
+bar.Size = UDim2.fromScale(0, 1)
+bar.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+bar.Parent = barContainer
+local barCorner2 = Instance.new("UICorner", bar)
+barCorner2.CornerRadius = UDim.new(0, 8)
+
+-- Tip text (optional)
+local tip = Instance.new("TextLabel")
+tip.Size = UDim2.new(1, 0, 0, 18)
+tip.BackgroundTransparency = 1
+tip.Text = "ZYSUMExHUB"
+tip.TextColor3 = Color3.fromRGB(200, 200, 200)
+tip.Font = Enum.Font.Gotham
+tip.TextScaled = true
+tip.Parent = card
+
+-- Animated bar loop
+local running = true
+task.spawn(function()
+ while running do
+  bar.Size = UDim2.fromScale(0, 1)
+  local t1 = TweenService:Create(
+   bar,
+   TweenInfo.new(BAR_CYCLE_TIME, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+   { Size = UDim2.fromScale(1, 1) }
+  )
+  t1:Play()
+  t1.Completed:Wait()
+
+  local t2 = TweenService:Create(
+   bar,
+   TweenInfo.new(0.20, Enum.EasingStyle.Linear, Enum.EasingDirection.Out),
+   { Size = UDim2.fromScale(0.98, 1) }
+  )
+  t2:Play()
+  t2.Completed:Wait()
+ end
+end)
+
+-- Fade out helper
+local function fadeOutAndDestroy()
+ running = false
+ local fadeOverlay = TweenService:Create(overlay, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {BackgroundTransparency = 1})
+ fadeOverlay:Play()
+
+ for _, obj in ipairs({card, barContainer, label, tip}) do
+  if obj:IsA("GuiObject") then
+   local bgTween = TweenService:Create(obj, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {BackgroundTransparency = 1})
+   bgTween:Play()
+  end
+  if obj:IsA("TextLabel") then
+   local txtTween = TweenService:Create(obj, TweenInfo.new(0.35, Enum.EasingStyle.Quad), {TextTransparency = 1})
+   txtTween:Play()
+  end
+ end
+ task.wait(0.4)
+ screenGui:Destroy()
+end
+
+-- Optional: Preload some common asset types for smoother first show
+local function collectPreloadTargets()
+ local list = {}
+ -- Limit to typical loadable assets para dili huge ang list
+ local classes = {
+  "Decal","Texture","MeshPart","UnionOperation","Animation","Sound","ImageLabel","ImageButton","ParticleEmitter"
+ }
+ local classSet = {}
+ for _, c in ipairs(classes) do classSet[c] = true end
+
+ for _, container in ipairs({
+  game.ReplicatedStorage,
+  game.Workspace,
+  game.StarterGui,
+  game.StarterPack,
+  game.Lighting
+ }) do
+  if container then
+   for _, inst in ipairs(container:GetDescendants()) do
+    if classSet[inst.ClassName] then
+     table.insert(list, inst)
+    end
+   end
+  end
+ end
+ return list
+end
+
+-- Main flow
+local t0 = os.clock()
+
+if ENABLE_PRELOAD then
+ local ok, err = pcall(function()
+  ContentProvider:PreloadAsync(collectPreloadTargets())
+ end)
+ if not ok then
+  warn("[LoadingScreen] Preload warning:", err)
+ end
+end
+
+-- Ensure minimum on-screen time
+local elapsed = os.clock() - t0
+if elapsed < MIN_SHOW_TIME then
